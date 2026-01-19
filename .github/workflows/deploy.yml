@@ -3,14 +3,19 @@ name: Deploy Next.js to GitHub Pages
 on:
   push:
     branches:
-      - main
+      - Main
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Checkout repository
@@ -20,6 +25,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
@@ -27,11 +33,14 @@ jobs:
       - name: Build Next.js site
         run: npm run build
 
-      - name: Disable Jekyll
-        run: touch out/.nojekyll
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./out
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: out
+        id: deployment
+        uses: actions/deploy-pages@v4
