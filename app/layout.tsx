@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   title: "Abhinit Kumar - Portfolio",
   description: "Portfolio website of Abhinit Kumar, a software developer specializing in web development and everything programming.",
   icons: {
-    icon: "public/favicon.ico",
+    icon: "/favicon.ico",
   },
 };
 
