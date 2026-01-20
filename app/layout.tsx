@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Abhinit Kumar - Portfolio",
   description: "Portfolio website of Abhinit Kumar, a software developer specializing in web development and everything programming.",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
