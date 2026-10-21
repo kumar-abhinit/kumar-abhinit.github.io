@@ -1,26 +1,447 @@
 @import "tailwindcss";
 
+/* ------------------------------------------------------------------ */
+/* Tokens                                                              */
+/* ------------------------------------------------------------------ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0a0a0b;
+  --fg: #f4f4f5;
+  --body: #c4c4cc;
+  --muted: #a1a1aa;
+  --subtle: #8a8a94;
+  --line: rgba(255, 255, 255, 0.1);
+  --accent: #60a5fa;
+
+  /* Width of each outer strip. Must match getGridGeometry() in lib/grid-geometry.ts. */
+  --outer: 6.25%;
+  /* Width of the profile column once the workspace is split. */
+  --split: 100%;
+
+  color-scheme: dark;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --outer: 10%;
+    --split: 34%;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --split: 30%;
+  }
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --color-body: var(--body);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ------------------------------------------------------------------ */
+/* Base                                                                */
+/* ------------------------------------------------------------------ */
+
+html {
+  background: var(--bg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .custom-cursor-active,
+  .custom-cursor-active *,
+  .custom-cursor-active *::before,
+  .custom-cursor-active *::after {
+    cursor: none !important;
+  }
+}
+
+.custom-cursor {
+  position: fixed;
+  z-index: 10000;
+  pointer-events: none;
+  transform-origin: 0 0;
+  transition: transform 80ms ease-out;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+}
+
+.custom-cursor svg {
+  display: block;
+}
+
+.cursor-click-burst {
+  position: fixed;
+  z-index: 10001;
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+  transform: translate(-10px, -18px);
+}
+
+@keyframes cursor-tick-in {
+  0% {
+    opacity: 0;
+    stroke-dashoffset: 14;
+  }
+  35% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 0;
+  }
+}
+
+.cursor-click-sparks .spark-tick {
+  stroke-dasharray: 14;
+  stroke-dashoffset: 14;
+  opacity: 0;
+  animation: cursor-tick-in 0.42s ease-out both;
+}
+
+.cursor-click-sparks .spark-tick-1 {
+  animation-delay: 0ms;
+}
+
+.cursor-click-sparks .spark-tick-2 {
+  animation-delay: 55ms;
+}
+
+.cursor-click-sparks .spark-tick-3 {
+  animation-delay: 110ms;
+}
+
+.cursor-click-sparks .spark-tick-4 {
+  animation-delay: 165ms;
+}
+
+::selection {
+  background: rgba(96, 165, 250, 0.3);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 100;
+  padding: 0.5rem 0.875rem;
+  border-radius: 6px;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transform: translateY(-200%);
+}
+
+.skip-link:focus-visible {
+  transform: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Frame: the central container between the two outer tile strips      */
+/* ------------------------------------------------------------------ */
+
+.stage {
+  /* Hero progress, 0 to 1. Written by ScrollStage; only read in enhanced mode. */
+  --p: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.frame {
+  margin-inline: var(--outer);
+  position: relative;
+}
+
+/* ------------------------------------------------------------------ */
+/* Hero                                                                */
+/* ------------------------------------------------------------------ */
+
+.hero-pane {
+  display: flex;
+  align-items: center;
+  min-height: 100svh;
+  padding-block: 4rem;
+  padding-inline: clamp(1.25rem, 4vw, 3.5rem);
+}
+
+.hero {
+  width: 100%;
+  max-width: 43rem;
+}
+
+.hero-title {
+  font-size: clamp(2.25rem, 1.2rem + 3.6vw, 3.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+.hero-tagline {
+  font-size: clamp(1.0625rem, 0.9rem + 0.7vw, 1.3125rem);
+  line-height: 1.35;
+  font-weight: 600;
+  color: #d4d4d8;
+}
+
+.hero-copy {
+  font-size: clamp(0.9375rem, 0.88rem + 0.25vw, 1.0625rem);
+  line-height: 1.65;
+  color: var(--body);
+}
+
+@media (max-height: 660px) and (min-width: 768px) {
+  .hero-pane {
+    padding-block: 2rem;
+  }
+  .hero-title {
+    font-size: 2.5rem;
+  }
+  .hero-copy {
+    font-size: 0.9375rem;
+    line-height: 1.55;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Workspace: profile + content                                        */
+/* ------------------------------------------------------------------ */
+
+.workspace {
+  position: relative;
+}
+
+.profile {
+  padding: 1.5rem clamp(1.25rem, 4vw, 3.5rem) 0;
+}
+
+.profile-identity {
+  display: none;
+}
+
+.workspace-content {
+  padding-inline: clamp(1.25rem, 4vw, 3.5rem);
+}
+
+@media (min-width: 768px) {
+  .workspace {
+    display: grid;
+    grid-template-columns: var(--split) minmax(0, 1fr);
+  }
+
+  /* Vertical divider between profile and content. */
+  .workspace::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--split);
+    width: 1px;
+    background: var(--line);
+    opacity: var(--pp, 1);
+  }
+
+  .profile {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100svh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: clamp(2rem, 11svh, 5rem) clamp(1rem, 2.4vw, 2.5rem) clamp(1.5rem, 5svh, 2.5rem)
+      clamp(1.25rem, 3vw, 3rem);
+  }
+
+  .profile-identity {
+    display: block;
+  }
+
+  .workspace-content {
+    padding-inline: clamp(1.25rem, 3.4vw, 3.5rem);
+  }
+}
+
+@media (min-width: 768px) and (max-height: 700px) {
+  .profile-summary {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Enhanced mode: hero is pinned, then dissolves into the workspace.   */
+/* Requires JS, desktop width and no reduced-motion preference.        */
+/* ------------------------------------------------------------------ */
+
+@media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
+  .js .stage {
+    /* Profile / divider ramp in after the hero is gone (p 0.42 to 0.8). */
+    --pp: clamp(0, calc((var(--p) - 0.42) / 0.38), 1);
+  }
+
+  .js .hero-pane {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    height: 100svh;
+    min-height: 0;
+    margin-bottom: -100svh;
+    opacity: clamp(0, calc(1 - var(--p) / 0.4), 1);
+    transform: translate3d(0, calc(var(--p) * -36px), 0);
+    will-change: opacity, transform;
+  }
+
+  .js .stage[data-hero="done"] .hero-pane {
+    visibility: hidden;
+  }
+
+  .js .stage[data-hero="active"] .profile {
+    visibility: hidden;
+  }
+
+  .js .profile {
+    opacity: var(--pp);
+    transform: translate3d(0, calc((1 - var(--pp)) * 14px), 0);
+  }
+
+  .js .workspace-content {
+    /* The first screen belongs to the hero; About scrolls up into view as it dissolves. */
+    padding-top: 100svh;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Prose helpers                                                       */
+/* ------------------------------------------------------------------ */
+
+.section {
+  padding-block: clamp(2.5rem, 7vw, 4.5rem);
+  scroll-margin-top: 1.5rem;
+}
+
+.section + .section {
+  border-top: 1px dashed var(--line);
+}
+
+.bullet-list > li {
+  position: relative;
+  padding-left: 1rem;
+}
+
+.bullet-list > li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.7em;
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--subtle);
+}
+
+/* Interest hover previews: only meaningful with a fine pointer. */
+@media (hover: none), (pointer: coarse) {
+  .interest-preview {
+    display: none;
+  }
+
+  .interest-trigger {
+    text-decoration: none;
+    cursor: inherit;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interest-preview {
+    transition: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Scroll reveal — soft "page load" as content enters the viewport     */
+/* Only active when JS is present; without JS content stays visible.   */
+/* ------------------------------------------------------------------ */
+
+.js .reveal {
+  opacity: 0;
+  transform: translate3d(0, 1.25rem, 0);
+  filter: blur(6px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform, filter;
+}
+
+.js .reveal.is-in {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  will-change: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js .reveal {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    transition: none;
+  }
+}
+
+/* GSAP tension text — word masks so yPercent reads as a vertical pull. */
+.tension-text {
+  display: block;
+}
+
+.tension-word {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  padding-bottom: 0.08em;
+  margin-bottom: -0.08em;
+}
+
+.tension-inner {
+  display: inline-block;
+  will-change: transform, opacity, letter-spacing;
+  transform-origin: 50% 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tension-inner {
+    will-change: auto;
+  }
 }
