@@ -1,7 +1,48 @@
 import type { GridGeometry } from "@/lib/grid-geometry";
 
-const WHITE = "255,255,255";
-const ACCENT = "96,165,250";
+/**
+ * Colours the grid is drawn with. Read from CSS custom properties (`--ink-rgb`,
+ * `--accent-rgb`, `--grid-boost`, `--socket-alpha`) so the canvas follows the active theme.
+ */
+export interface GridPalette {
+  /** "r,g,b" of the line / tile colour (white on dark, deep slate on light). */
+  ink: string;
+  /** "r,g,b" of the accent used by the cursor glow. */
+  accent: string;
+  /** Multiplier on ink alphas; light backgrounds need a little more to read. */
+  boost: number;
+  /** Opacity of the dark socket left behind a raised cell. */
+  socketAlpha: number;
+}
+
+export const DARK_PALETTE: GridPalette = {
+  ink: "255,255,255",
+  accent: "96,165,250",
+  boost: 1,
+  socketAlpha: 0.35,
+};
+
+/** Reads the active theme's palette from the root element, falling back to dark. */
+export function readPalette(): GridPalette {
+  if (typeof document === "undefined") return DARK_PALETTE;
+  const style = getComputedStyle(document.documentElement);
+  const read = (name: string) => style.getPropertyValue(name).trim();
+  const number = (name: string, fallback: number) => {
+    const parsed = Number.parseFloat(read(name));
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+  return {
+    ink: read("--ink-rgb") || DARK_PALETTE.ink,
+    accent: read("--accent-rgb") || DARK_PALETTE.accent,
+    boost: number("--grid-boost", DARK_PALETTE.boost),
+    socketAlpha: number("--socket-alpha", DARK_PALETTE.socketAlpha),
+  };
+}
+
+/** Scales an alpha by the palette boost, capped at 1. */
+function tone(palette: GridPalette, alpha: number): number {
+  return Math.min(1, alpha * palette.boost);
+}
 
 /** Dash pattern shared by base lines and their cursor highlight, so they overlay exactly. */
 const DASH = [1.5, 4.5];
@@ -43,7 +84,10 @@ export interface DrawState {
   ripples: readonly GridRipple[];
   /** Per-cell pop-out near the pointer, 0 to 1, keyed by `tileKey`. Any cell can appear. */
   lifts: ReadonlyMap<number, number>;
+  /** Opacity of the raised cells, 0 to 1. Lowered over text so it stays readable. */
+  liftOpacity: number;
   now: number;
+  palette: GridPalette;
 }
 
 function clamp01(value: number): number {
@@ -76,13 +120,14 @@ function drawRaisedTile(
   y: number,
   size: number,
   lift: number,
+  palette: GridPalette,
 ) {
   const rise = lift * RISE_PX;
   const tx = x - rise;
   const ty = y - rise;
 
   // Right face.
-  ctx.fillStyle = `rgba(${WHITE},${(lift * 0.1).toFixed(4)})`;
+  ctx.fillStyle = `rgba(${palette.ink},${tone(palette, lift * 0.1).toFixed(4)})`;
   ctx.beginPath();
   ctx.moveTo(tx + size, ty);
   ctx.lineTo(x + size, y);
@@ -92,7 +137,7 @@ function drawRaisedTile(
   ctx.fill();
 
   // Bottom face, a touch dimmer than the right one.
-  ctx.fillStyle = `rgba(${WHITE},${(lift * 0.055).toFixed(4)})`;
+  ctx.fillStyle = `rgba(${palette.ink},${tone(palette, lift * 0.055).toFixed(4)})`;
   ctx.beginPath();
   ctx.moveTo(tx, ty + size);
   ctx.lineTo(tx + size, ty + size);
@@ -102,9 +147,9 @@ function drawRaisedTile(
   ctx.fill();
 
   // Top face with a faint accent edge.
-  ctx.fillStyle = `rgba(${WHITE},${(lift * 0.12).toFixed(4)})`;
+  ctx.fillStyle = `rgba(${palette.ink},${tone(palette, lift * 0.12).toFixed(4)})`;
   ctx.fillRect(tx, ty, size, size);
-  ctx.strokeStyle = `rgba(${ACCENT},${(lift * 0.45).toFixed(4)})`;
+  ctx.strokeStyle = `rgba(${palette.accent},${(lift * 0.45).toFixed(4)})`;
   ctx.lineWidth = 1;
   ctx.strokeRect(tx + 0.5, ty + 0.5, size - 1, size - 1);
 }
@@ -114,8 +159,10 @@ function drawRaisedCells(
   ctx: CanvasRenderingContext2D,
   geo: GridGeometry,
   lifts: ReadonlyMap<number, number>,
+  palette: GridPalette,
+  opacity: number,
 ) {
-  if (lifts.size === 0) return;
+  if (lifts.size === 0 || opacity <= 0.005) return;
   const { cell } = geo;
   const inset = 1.5;
   const size = cell - inset * 2;
@@ -123,6 +170,8 @@ function drawRaisedCells(
 
   // Lowest first so the highest cells sit on top of their neighbours.
   const entries = [...lifts].filter(([, lift]) => lift > 0.005).sort((a, b) => a[1] - b[1]);
+  ctx.save();
+  ctx.globalAlpha = opacity;
   for (const [key, lift] of entries) {
     const col = key % 10000;
     const row = Math.floor(key / 10000);
@@ -130,13 +179,19 @@ function drawRaisedCells(
     const y = row * cell + inset;
 
     // The empty socket the block rose out of.
-    ctx.fillStyle = `rgba(0,0,0,${(lift * 0.35).toFixed(3)})`;
+    ctx.fillStyle = `rgba(0,0,0,${(lift * palette.socketAlpha).toFixed(3)})`;
     ctx.fillRect(x, y, size, size);
-    drawRaisedTile(ctx, x, y, size, lift);
+    drawRaisedTile(ctx, x, y, size, lift, palette);
   }
+  ctx.restore();
 }
 
-function drawTiles(ctx: CanvasRenderingContext2D, geo: GridGeometry, reveal: number) {
+function drawTiles(
+  ctx: CanvasRenderingContext2D,
+  geo: GridGeometry,
+  reveal: number,
+  palette: GridPalette,
+) {
   const { cell, outerCells, innerCells, totalCols, rows } = geo;
   const lead = reveal * (rows + 6);
   const rightStart = outerCells + innerCells;
@@ -160,7 +215,7 @@ function drawTiles(ctx: CanvasRenderingContext2D, geo: GridGeometry, reveal: num
 
       const x = col * cell + inset;
       const y = row * cell + inset;
-      ctx.fillStyle = `rgba(${WHITE},${alpha.toFixed(4)})`;
+      ctx.fillStyle = `rgba(${palette.ink},${tone(palette, alpha).toFixed(4)})`;
       ctx.fillRect(x, y, size, size);
     }
   }
@@ -182,11 +237,12 @@ function strokeSegment(
   ctx.stroke();
 }
 
-function drawLines(ctx: CanvasRenderingContext2D, geo: GridGeometry) {
+function drawLines(ctx: CanvasRenderingContext2D, geo: GridGeometry, palette: GridPalette) {
   const { cell, outerCells, innerCells, totalCols, rows, width, height, left, right } = geo;
   const rightCol = outerCells + innerCells;
-  const outerAlpha = 0.085;
-  const centreAlpha = 0.05;
+  const outerAlpha = tone(palette, 0.085);
+  const centreAlpha = tone(palette, 0.05);
+  const ink = palette.ink;
 
   ctx.lineWidth = 1;
 
@@ -200,7 +256,7 @@ function drawLines(ctx: CanvasRenderingContext2D, geo: GridGeometry) {
       [right, width, outerAlpha],
     ];
     for (const [x1, x2, alpha] of segments) {
-      ctx.strokeStyle = `rgba(${WHITE},${alpha})`;
+      ctx.strokeStyle = `rgba(${ink},${alpha})`;
       strokeSegment(ctx, x1, y, x2, y, x1);
     }
   }
@@ -211,7 +267,7 @@ function drawLines(ctx: CanvasRenderingContext2D, geo: GridGeometry) {
     const isBoundary = col === outerCells || col === rightCol;
     if (isBoundary) {
       ctx.setLineDash([]);
-      ctx.strokeStyle = `rgba(${WHITE},0.2)`;
+      ctx.strokeStyle = `rgba(${ink},${tone(palette, 0.2)})`;
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, height);
@@ -219,13 +275,13 @@ function drawLines(ctx: CanvasRenderingContext2D, geo: GridGeometry) {
       continue;
     }
     const inCentre = col > outerCells && col < rightCol;
-    ctx.strokeStyle = `rgba(${WHITE},${inCentre ? centreAlpha : outerAlpha})`;
+    ctx.strokeStyle = `rgba(${ink},${inCentre ? centreAlpha : outerAlpha})`;
     strokeSegment(ctx, x, 0, x, height, 0);
   }
 
   // Intersections: barely visible at rest.
   ctx.setLineDash([]);
-  ctx.fillStyle = `rgba(${WHITE},0.12)`;
+  ctx.fillStyle = `rgba(${ink},${tone(palette, 0.12)})`;
   ctx.beginPath();
   for (let col = 1; col < totalCols; col += 1) {
     const x = crisp(col * cell);
@@ -247,6 +303,7 @@ function drawRipples(
   geo: GridGeometry,
   ripples: readonly GridRipple[],
   now: number,
+  palette: GridPalette,
 ) {
   const { cell, totalCols, rows } = geo;
   const maxRadius = cell * RIPPLE_REACH_CELLS;
@@ -282,14 +339,20 @@ function drawRipples(
         const size = cell - inset * 2;
         if (size <= 0) continue;
 
-        ctx.fillStyle = `rgba(${WHITE},${alpha.toFixed(3)})`;
+        ctx.fillStyle = `rgba(${palette.ink},${tone(palette, alpha).toFixed(3)})`;
         ctx.fillRect(col * cell + inset, row * cell + inset, size, size);
       }
     }
   }
 }
 
-function drawGlow(ctx: CanvasRenderingContext2D, geo: GridGeometry, glow: PointerGlow) {
+function drawGlow(
+  ctx: CanvasRenderingContext2D,
+  geo: GridGeometry,
+  glow: PointerGlow,
+  palette: GridPalette,
+) {
+  const ACCENT = palette.accent;
   const { cell, totalCols, rows, width, height } = geo;
   const radius = cell * GLOW_RADIUS_CELLS;
   const { x: px, y: py, strength } = glow;
@@ -351,12 +414,12 @@ export function drawGrid(
   state: DrawState,
 ): void {
   ctx.clearRect(0, 0, geo.width, geo.height);
-  drawTiles(ctx, geo, state.reveal);
-  drawRipples(ctx, geo, state.ripples, state.now);
-  drawLines(ctx, geo);
+  drawTiles(ctx, geo, state.reveal, state.palette);
+  drawRipples(ctx, geo, state.ripples, state.now, state.palette);
+  drawLines(ctx, geo, state.palette);
   if (state.glow && state.glow.strength > 0.004) {
-    drawGlow(ctx, geo, state.glow);
+    drawGlow(ctx, geo, state.glow, state.palette);
   }
-  drawRaisedCells(ctx, geo, state.lifts);
+  drawRaisedCells(ctx, geo, state.lifts, state.palette, state.liftOpacity);
   ctx.setLineDash([]);
 }

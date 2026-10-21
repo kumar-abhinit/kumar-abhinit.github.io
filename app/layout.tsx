@@ -15,13 +15,18 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a0b",
-  colorScheme: "dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#eef3fb" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0b" },
+  ],
+  colorScheme: "dark light",
 };
 
-// Marks the document as script-enabled before first paint so CSS can opt in to
-// the scroll-driven layout. Without JS the page stays a plain stacked layout.
-const enableJs = "document.documentElement.classList.add('js')";
+// Runs before first paint: marks the document as script-enabled so CSS can opt in
+// to the scroll-driven layout (without JS the page stays a plain stacked layout),
+// and applies a theme the visitor chose earlier. With no stored choice, CSS
+// follows the OS preference via prefers-color-scheme.
+const enableJs = `(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')d.dataset.theme=t;}catch(e){}})();`;
 
 export default function RootLayout({
   children,

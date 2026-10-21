@@ -35,7 +35,7 @@ export default function HoverInterest({ label, imageSrc, imageAlt }: HoverIntere
       <span
         id={id}
         role="tooltip"
-        className={`interest-preview pointer-events-none absolute bottom-[calc(100%+0.65rem)] left-1/2 z-30 w-36 -translate-x-1/2 overflow-hidden rounded-lg border border-line bg-background shadow-[0_12px_40px_rgba(0,0,0,0.55)] transition-[opacity,transform] duration-200 ease-out sm:w-44 ${
+        className={`interest-preview pointer-events-none absolute bottom-[calc(100%+0.65rem)] left-1/2 z-30 w-36 -translate-x-1/2 overflow-hidden rounded-lg border border-line bg-background shadow-[var(--shadow-pop)] transition-[opacity,transform] duration-200 ease-out sm:w-44 ${
           open
             ? "translate-y-0 opacity-100"
             : "translate-y-1 opacity-0"

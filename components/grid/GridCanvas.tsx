@@ -3,7 +3,14 @@
 import { useEffect, useRef } from "react";
 import { DESKTOP_QUERY, getGridGeometry, type GridGeometry } from "@/lib/grid-geometry";
 import { getReveal, subscribeReveal } from "@/lib/reveal-store";
-import { drawGrid, RIPPLE_DURATION, tileKey, tileNoise, type GridRipple } from "./draw";
+import {
+  drawGrid,
+  readPalette,
+  RIPPLE_DURATION,
+  tileKey,
+  tileNoise,
+  type GridRipple,
+} from "./draw";
 
 /** Pointer easing per frame (position / strength). */
 const POSITION_EASE = 0.2;
@@ -12,15 +19,28 @@ const STRENGTH_EASE = 0.12;
 /** Per-frame easing of each cell's pop-out, so blocks rise and settle softly. */
 const LIFT_EASE = 0.18;
 
-/** Pop-out reach in cells at full movement; idle collapses to the centre cell only. */
+/** Pop-out reach in cells at full movement. */
 const MAX_POP_CELLS = 4;
 
-/** Pointer travel (in cells) that takes the movement activity from 0 to 1. */
+/** Reach kept while the mouse is still (cells). Moving can expand up to MAX_POP_CELLS. */
+const IDLE_POP_CELLS = 2.5;
+
+/** Activity level that maps to IDLE_POP_CELLS via `reach = MAX_POP_CELLS * activity`. */
+const ACTIVITY_IDLE = IDLE_POP_CELLS / MAX_POP_CELLS;
+
+/** Pointer travel (in cells) that takes the movement activity from idle to 1. */
 const ACTIVITY_TRAVEL_CELLS = 2;
 
-/** Idle time before activity starts to decay, and its per-frame decay factor. */
+/** Idle time before activity starts to decay toward the idle floor. */
 const ACTIVITY_HOLD_MS = 90;
 const ACTIVITY_DECAY = 0.955;
+
+/** Components that already carry text; the raised cells fade while the pointer is over them. */
+const TEXT_ZONE = ".hero, .section, .profile";
+
+/** Raised-cell opacity over text (1 = untouched) and its per-frame easing. */
+const TEXT_LIFT_OPACITY = 0.28;
+const OPACITY_EASE = 0.16;
 
 /**
  * One full-viewport canvas that draws the dotted grid, the outer tile strips and
@@ -52,21 +72,35 @@ export default function GridCanvas() {
       strength: 0,
       target: 0,
       seen: false,
-      /** 0 (idle) to 1 (moving fast): how far the pop-out spreads from the centre cell. */
+      /** ACTIVITY_IDLE (still) to 1 (moving): how far the pop-out spreads. */
       activity: 0,
       lastMoveAt: 0,
+      /** Eased opacity of the raised cells, and the value it is heading to. */
+      liftOpacity: 1,
+      liftOpacityTarget: 1,
+    };
+
+    /** Over a text component the raised cells step back so the copy stays legible. */
+    const setOverText = (element: Element | null) => {
+      const overText = element?.closest(TEXT_ZONE) != null;
+      pointer.liftOpacityTarget = overText ? TEXT_LIFT_OPACITY : 1;
     };
 
     const currentReveal = () => (reduceQuery.matches ? 1 : getReveal());
+
+    // Theme colours come from CSS variables; re-read whenever the theme changes.
+    let palette = readPalette();
 
     const render = () => {
       if (!geometry) return;
       const glowing = pointer.seen && pointer.strength > 0;
       drawGrid(ctx, geometry, {
+        palette,
         reveal: currentReveal(),
         glow: glowing ? { x: pointer.x, y: pointer.y, strength: pointer.strength } : null,
         ripples,
         lifts,
+        liftOpacity: pointer.liftOpacity,
         now: performance.now(),
       });
     };
@@ -75,7 +109,7 @@ export default function GridCanvas() {
      * The cell under the pointer always pops out. While the mouse moves, nearby
      * cells join in up to MAX_POP_CELLS away; each cell has its own noisy reach
      * and height, so the patch is ragged instead of a neat diamond. When the mouse
-     * stops, activity decays and the patch shrinks back to the centre cell.
+     * stops, activity decays down to IDLE_POP_CELLS (~2.5 cells), not to zero.
      * Returns true while still moving.
      */
     const updateLifts = (): boolean => {
@@ -148,25 +182,41 @@ export default function GridCanvas() {
       }
       if (settledStrength) pointer.strength = pointer.target;
 
+      pointer.liftOpacity += (pointer.liftOpacityTarget - pointer.liftOpacity) * OPACITY_EASE;
+      const settledOpacity = Math.abs(pointer.liftOpacityTarget - pointer.liftOpacity) < 0.005;
+      if (settledOpacity) pointer.liftOpacity = pointer.liftOpacityTarget;
+
       const now = performance.now();
       ripples = ripples.filter((ripple) => now - ripple.startedAt < RIPPLE_DURATION);
 
-      // Once the mouse has been still for a moment the spread drains back to 0.
-      if (pointer.activity > 0 && now - pointer.lastMoveAt > ACTIVITY_HOLD_MS) {
-        pointer.activity *= ACTIVITY_DECAY;
-        if (pointer.activity < 0.01) pointer.activity = 0;
+      // While the pointer is on the page, still settles at ~2.5 cells; leaving
+      // the window drains all the way to 0.
+      if (now - pointer.lastMoveAt > ACTIVITY_HOLD_MS) {
+        if (pointer.target > 0) {
+          if (pointer.activity > ACTIVITY_IDLE) {
+            pointer.activity = Math.max(ACTIVITY_IDLE, pointer.activity * ACTIVITY_DECAY);
+          } else {
+            pointer.activity = ACTIVITY_IDLE;
+          }
+        } else if (pointer.activity > 0) {
+          pointer.activity *= ACTIVITY_DECAY;
+          if (pointer.activity < 0.01) pointer.activity = 0;
+        }
       }
 
       const liftsMoving = updateLifts();
       render();
 
-      // Keep animating only while the glow is moving/fading, a click wave is
-      // active, or the pop-out is still spreading/settling.
+      // Keep animating while glow/ripples/lifts are settling, or while activity
+      // is still decaying toward the idle floor (or to 0 after leaving).
+      const activitySettling =
+        (pointer.target > 0 && pointer.activity > ACTIVITY_IDLE + 0.002) ||
+        (pointer.target === 0 && pointer.activity > 0);
       if (
-        !(settledPosition && settledStrength) ||
+        !(settledPosition && settledStrength && settledOpacity) ||
         ripples.length > 0 ||
         liftsMoving ||
-        pointer.activity > 0
+        activitySettling
       ) {
         frame = window.requestAnimationFrame(tick);
       }
@@ -192,6 +242,8 @@ export default function GridCanvas() {
     const onPointerMove = (event: PointerEvent) => {
       if (event.pointerType === "touch") return;
 
+      setOverText(event.target instanceof Element ? event.target : null);
+
       // Travel since the last event feeds the movement activity.
       if (pointer.seen) {
         const travel = Math.hypot(event.clientX - pointer.targetX, event.clientY - pointer.targetY);
@@ -206,6 +258,8 @@ export default function GridCanvas() {
         pointer.x = event.clientX;
         pointer.y = event.clientY;
         pointer.seen = true;
+        // Parked cursor still shows the idle ~2.5-cell patch.
+        pointer.activity = Math.max(pointer.activity, ACTIVITY_IDLE);
       }
       pointer.target = 1;
       requestDraw();
@@ -233,6 +287,14 @@ export default function GridCanvas() {
 
     const fadeOut = () => {
       pointer.target = 0;
+      pointer.liftOpacityTarget = 1;
+      requestDraw();
+    };
+
+    // Content scrolls under a still pointer, so re-check what is beneath it.
+    const onScroll = () => {
+      if (!pointer.seen || pointer.target === 0) return;
+      setOverText(document.elementFromPoint(pointer.targetX, pointer.targetY));
       requestDraw();
     };
 
@@ -241,6 +303,7 @@ export default function GridCanvas() {
       pointerBound = true;
       window.addEventListener("pointermove", onPointerMove, { passive: true });
       window.addEventListener("pointerdown", onPointerDown, { passive: true });
+      window.addEventListener("scroll", onScroll, { passive: true, capture: true });
       document.documentElement.addEventListener("mouseleave", fadeOut);
       window.addEventListener("blur", fadeOut);
     };
@@ -250,8 +313,11 @@ export default function GridCanvas() {
       pointerBound = false;
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("scroll", onScroll, { capture: true });
       document.documentElement.removeEventListener("mouseleave", fadeOut);
       window.removeEventListener("blur", fadeOut);
+      pointer.liftOpacity = 1;
+      pointer.liftOpacityTarget = 1;
       pointer.target = 0;
       pointer.strength = 0;
       pointer.activity = 0;
@@ -268,6 +334,18 @@ export default function GridCanvas() {
 
     const onGeometryChange = () => resize();
 
+    const onThemeChange = () => {
+      palette = readPalette();
+      render();
+    };
+    const schemeQuery = window.matchMedia("(prefers-color-scheme: light)");
+    schemeQuery.addEventListener("change", onThemeChange);
+    const themeObserver = new MutationObserver(onThemeChange);
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
     const unsubscribeReveal = subscribeReveal(requestDraw);
@@ -281,6 +359,8 @@ export default function GridCanvas() {
     return () => {
       if (frame) window.cancelAnimationFrame(frame);
       observer.disconnect();
+      themeObserver.disconnect();
+      schemeQuery.removeEventListener("change", onThemeChange);
       unsubscribeReveal();
       unbindPointer();
       reduceQuery.removeEventListener("change", syncPointerEffect);

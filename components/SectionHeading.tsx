@@ -8,6 +8,7 @@ export default function SectionHeading({ id, children }: { id: string; children:
       className="mb-8 text-xs font-semibold uppercase tracking-[0.18em] text-subtle"
       mode="enter"
       settleTracking="0.18em"
+      brush="scroll"
     >
       {children}
     </TensionText>

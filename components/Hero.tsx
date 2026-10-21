@@ -16,6 +16,7 @@ export default function Hero() {
         id="hero-title"
         className="hero-title text-foreground"
         mode="exit"
+        brush="load"
       >
         {profile.headline}
       </TensionText>

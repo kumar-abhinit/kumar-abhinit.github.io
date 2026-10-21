@@ -7,7 +7,7 @@ const linkClass =
 
 export default function ProjectCard({ project }: { project: Project }) {
   return (
-    <article className="rounded-lg border border-line p-5 transition-colors hover:border-white/25 sm:p-6">
+    <article className="rounded-lg border border-line p-5 transition-colors hover:border-line-strong sm:p-6">
       <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h3 className="text-lg font-semibold tracking-tight text-foreground">{project.name}</h3>
         <p className="text-xs tabular-nums text-subtle">{project.period}</p>

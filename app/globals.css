@@ -4,20 +4,85 @@
 /* Tokens                                                              */
 /* ------------------------------------------------------------------ */
 
+/* Dark is the default palette. */
 :root {
   --bg: #0a0a0b;
   --fg: #f4f4f5;
   --body: #c4c4cc;
   --muted: #a1a1aa;
   --subtle: #8a8a94;
+  --tagline: #d4d4d8;
   --line: rgba(255, 255, 255, 0.1);
+  --line-strong: rgba(255, 255, 255, 0.25);
   --accent: #60a5fa;
+  --selection: rgba(96, 165, 250, 0.3);
+  --shadow-pop: 0 12px 40px rgba(0, 0, 0, 0.55);
+
+  /* Read by the canvas grid (components/grid/draw.ts). */
+  --ink-rgb: 255, 255, 255;
+  --accent-rgb: 96, 165, 250;
+  --grid-boost: 1;
+  --socket-alpha: 0.35;
 
   /* Width of each outer strip. Must match getGridGeometry() in lib/grid-geometry.ts. */
   --outer: 6.25%;
   /* Width of the profile column once the workspace is split. */
   --split: 100%;
 
+  color-scheme: dark;
+}
+
+/*
+ * Light palette: never pure white. The background is a very pale wash of the
+ * primary blue (#60a5fa family), and the accent is deepened to keep contrast.
+ * Applied when the OS prefers light (unless the visitor forced dark) or when
+ * the visitor forced light via the toggle.
+ */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #eef3fb;
+    --fg: #0b1220;
+    --body: #364156;
+    --muted: #536078;
+    --subtle: #66728a;
+    --tagline: #1f2a3f;
+    --line: rgba(30, 58, 110, 0.14);
+    --line-strong: rgba(30, 58, 110, 0.32);
+    --accent: #2563eb;
+    --selection: rgba(37, 99, 235, 0.2);
+    --shadow-pop: 0 12px 36px rgba(30, 58, 110, 0.18);
+
+    --ink-rgb: 30, 58, 110;
+    --accent-rgb: 37, 99, 235;
+    --grid-boost: 1.5;
+    --socket-alpha: 0.07;
+
+    color-scheme: light;
+  }
+}
+
+:root[data-theme="light"] {
+  --bg: #eef3fb;
+  --fg: #0b1220;
+  --body: #364156;
+  --muted: #536078;
+  --subtle: #66728a;
+  --tagline: #1f2a3f;
+  --line: rgba(30, 58, 110, 0.14);
+  --line-strong: rgba(30, 58, 110, 0.32);
+  --accent: #2563eb;
+  --selection: rgba(37, 99, 235, 0.2);
+  --shadow-pop: 0 12px 36px rgba(30, 58, 110, 0.18);
+
+  --ink-rgb: 30, 58, 110;
+  --accent-rgb: 37, 99, 235;
+  --grid-boost: 1.5;
+  --socket-alpha: 0.07;
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
   color-scheme: dark;
 }
 
@@ -41,6 +106,7 @@
   --color-muted: var(--muted);
   --color-subtle: var(--subtle);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-accent: var(--accent);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
@@ -141,7 +207,7 @@ body {
 }
 
 ::selection {
-  background: rgba(96, 165, 250, 0.3);
+  background: var(--selection);
 }
 
 :focus-visible {
@@ -212,7 +278,7 @@ body {
   font-size: clamp(1.0625rem, 0.9rem + 0.7vw, 1.3125rem);
   line-height: 1.35;
   font-weight: 600;
-  color: #d4d4d8;
+  color: var(--tagline);
 }
 
 .hero-copy {
@@ -443,5 +509,46 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .tension-inner {
     will-change: auto;
+  }
+}
+
+/* Brush stroke under the hero name: reveals left to right, in the accent colour. */
+.brush-target {
+  position: relative;
+  display: inline-block;
+}
+
+.brush-stroke {
+  /* Size, position and colour live inline on the SVG (see TensionText). */
+  opacity: 0.92;
+  transform: rotate(-0.8deg);
+  transform-origin: left center;
+  clip-path: inset(0 100% 0 0);
+  animation: brush-draw 1.15s cubic-bezier(0.65, 0, 0.25, 1) 0.85s forwards;
+}
+
+@keyframes brush-draw {
+  0% {
+    clip-path: inset(0 100% 0 0);
+  }
+  60% {
+    clip-path: inset(0 22% 0 0);
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Scroll-scrubbed variant: GSAP drives clip-path, so no timed animation. */
+.brush-stroke.brush-scroll {
+  animation: none;
+  clip-path: inset(0 100% 0 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brush-stroke,
+  .brush-stroke.brush-scroll {
+    clip-path: none;
+    animation: none;
   }
 }
