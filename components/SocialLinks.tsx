@@ -2,7 +2,7 @@ import { FileText, Github, Linkedin, Mail } from "lucide-react";
 import type { Links } from "@/content/portfolio";
 
 const linkClass =
-  "inline-flex size-9 items-center justify-center rounded-md text-muted transition-colors hover:text-foreground";
+  "inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-muted transition-colors hover:text-foreground";
 
 /** Lucide has no LeetCode glyph; Simple Icons path, sized like the other brand icons. */
 function LeetCodeIcon({ className }: { className?: string }) {
