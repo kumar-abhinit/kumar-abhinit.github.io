@@ -4,7 +4,6 @@ import Hero from "@/components/Hero";
 import ProfilePanel from "@/components/ProfilePanel";
 import RevealOnScroll from "@/components/RevealOnScroll";
 import ScrollStage from "@/components/ScrollStage";
-import ThemeToggle from "@/components/ThemeToggle";
 import {
   AboutSection,
   ExperienceSection,
@@ -17,7 +16,6 @@ export default function Home() {
     <>
       <GridCanvas />
       <CustomCursor />
-      <ThemeToggle />
       <RevealOnScroll />
       <a href="#main" className="skip-link">
         Skip to content

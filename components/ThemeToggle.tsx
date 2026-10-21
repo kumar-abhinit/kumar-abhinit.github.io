@@ -31,6 +31,20 @@ function subscribe(onChange: () => void) {
   };
 }
 
+/** "|" plus the theme toggle, as the last items in a contact-links row. */
+export function ContactThemeControl() {
+  return (
+    <>
+      <li aria-hidden="true" className="social-sep">
+        |
+      </li>
+      <li>
+        <ThemeToggle />
+      </li>
+    </>
+  );
+}
+
 /**
  * Light / dark switch. Follows the OS preference until the visitor picks a theme;
  * the choice is then stored and applied before paint by the layout's inline script.
@@ -38,6 +52,7 @@ function subscribe(onChange: () => void) {
 export default function ThemeToggle() {
   const theme = useSyncExternalStore(subscribe, getTheme, (): Theme => "dark");
   const next: Theme = theme === "dark" ? "light" : "dark";
+  const label = `Switch to ${next} mode`;
 
   const toggle = () => {
     document.documentElement.dataset.theme = next;
@@ -51,14 +66,18 @@ export default function ThemeToggle() {
   const Icon = theme === "dark" ? Sun : Moon;
 
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      aria-label={`Switch to ${next} mode`}
-      title={`Switch to ${next} mode`}
-      className="theme-toggle fixed bottom-4 right-4 z-50 inline-flex size-9 items-center justify-center rounded-md border border-line bg-background/70 text-muted backdrop-blur transition-colors hover:border-line-strong hover:text-foreground"
-    >
-      <Icon className="size-[18px]" aria-hidden="true" />
-    </button>
+    <span className="icon-tip icon-tip-end">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-label={label}
+        className="theme-toggle inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted transition-colors hover:text-foreground"
+      >
+        <Icon className="size-[18px]" aria-hidden="true" />
+      </button>
+      <span className="icon-tip-label" role="tooltip" aria-hidden="true">
+        {label}
+      </span>
+    </span>
   );
 }

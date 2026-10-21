@@ -1,5 +1,7 @@
+import type { ReactNode } from "react";
 import { FileText, Github, Linkedin, Mail } from "lucide-react";
 import type { Links } from "@/content/portfolio";
+import { ContactThemeControl } from "./ThemeToggle";
 
 const linkClass =
   "inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-muted transition-colors hover:text-foreground";
@@ -13,59 +15,56 @@ function LeetCodeIcon({ className }: { className?: string }) {
   );
 }
 
-/** Icon row: GitHub, LeetCode, LinkedIn, email, résumé. */
+function TipItem({
+  href,
+  label,
+  tip,
+  external,
+  children,
+}: {
+  href: string;
+  label: string;
+  tip: string;
+  external?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <li className="icon-tip">
+      <a
+        href={href}
+        className={linkClass}
+        aria-label={label}
+        {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      >
+        {children}
+      </a>
+      <span className="icon-tip-label" role="tooltip" aria-hidden="true">
+        {tip}
+      </span>
+    </li>
+  );
+}
+
+/** Icon row: GitHub, LeetCode, LinkedIn, email, résumé, then the theme toggle. */
 export default function SocialLinks({ links }: { links: Links }) {
   return (
     <ul className="-ml-2 flex items-center gap-1" aria-label="Contact links">
-      <li>
-        <a
-          href={links.github}
-          className={linkClass}
-          aria-label="GitHub profile"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Github className="size-5" aria-hidden="true" />
-        </a>
-      </li>
-      <li>
-        <a
-          href={links.leetcode}
-          className={linkClass}
-          aria-label="LeetCode profile"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <LeetCodeIcon className="size-5" />
-        </a>
-      </li>
-      <li>
-        <a
-          href={links.linkedin}
-          className={linkClass}
-          aria-label="LinkedIn profile"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Linkedin className="size-5" aria-hidden="true" />
-        </a>
-      </li>
-      <li>
-        <a href={`mailto:${links.email}`} className={linkClass} aria-label="Send an email">
-          <Mail className="size-5" aria-hidden="true" />
-        </a>
-      </li>
-      <li>
-        <a
-          href={links.resume}
-          className={linkClass}
-          aria-label="Résumé (PDF)"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <FileText className="size-5" aria-hidden="true" />
-        </a>
-      </li>
+      <TipItem href={links.github} label="GitHub profile" tip="GitHub" external>
+        <Github className="size-5" aria-hidden="true" />
+      </TipItem>
+      <TipItem href={links.leetcode} label="LeetCode profile" tip="LeetCode" external>
+        <LeetCodeIcon className="size-5" />
+      </TipItem>
+      <TipItem href={links.linkedin} label="LinkedIn profile" tip="LinkedIn" external>
+        <Linkedin className="size-5" aria-hidden="true" />
+      </TipItem>
+      <TipItem href={`mailto:${links.email}`} label="Send an email" tip="Email">
+        <Mail className="size-5" aria-hidden="true" />
+      </TipItem>
+      <TipItem href={links.resume} label="Résumé (PDF)" tip="Résumé" external>
+        <FileText className="size-5" aria-hidden="true" />
+      </TipItem>
+      <ContactThemeControl />
     </ul>
   );
 }

@@ -11,6 +11,15 @@ type TensionMode = "exit" | "enter";
 type TensionTag = "h1" | "h2" | "p" | "span";
 type BrushMode = "load" | "scroll";
 
+/** Shared with the mobile section nav so those labels paint on the same scroll range. */
+export const SCROLL_BRUSH = {
+  start: "top 82%",
+  end: "top 34%",
+  /** A heading has entered the brush when its top crosses this fraction of the viewport. */
+  startLine: 0.82,
+  scrub: 0.7,
+} as const;
+
 interface TensionTextProps {
   as?: TensionTag;
   id?: string;
@@ -28,7 +37,7 @@ interface TensionTextProps {
 }
 
 /** Hand-painted stroke: tapered ends, ragged bristle edge, one dry streak. */
-function BrushStroke({ mode }: { mode: BrushMode }) {
+export function BrushStroke({ mode }: { mode: BrushMode }) {
   // Sizes are in em so the stroke scales with whatever text it sits under.
   const small = mode === "scroll";
   return (
@@ -184,9 +193,9 @@ export default function TensionText({
               ease: "none",
               scrollTrigger: {
                 trigger: root,
-                start: "top 82%",
-                end: "top 34%",
-                scrub: 0.7,
+                start: SCROLL_BRUSH.start,
+                end: SCROLL_BRUSH.end,
+                scrub: SCROLL_BRUSH.scrub,
                 invalidateOnRefresh: true,
               },
             },

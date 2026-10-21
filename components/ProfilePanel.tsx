@@ -1,4 +1,5 @@
 import { navItems, profile } from "@/content/portfolio";
+import ProfileBarPin from "./ProfileBarPin";
 import SectionNav from "./SectionNav";
 import SocialLinks from "./SocialLinks";
 
@@ -14,10 +15,11 @@ export default function ProfilePanel() {
         </p>
         <p className="mt-3 text-xs text-subtle">{profile.location}</p>
       </div>
-      <div className="py-6">
+      <ProfileBarPin />
+      <div className="profile-nav py-6">
         <SectionNav items={navItems} />
       </div>
-      <div className="pb-2">
+      <div className="profile-links pb-2">
         <SocialLinks links={profile.links} />
       </div>
     </aside>
