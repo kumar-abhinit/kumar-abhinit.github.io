@@ -1,4 +1,4 @@
-import type { GridGeometry } from "@/lib/grid-geometry";
+import { columnAt, columnWidth, columnX, type GridGeometry } from "@/lib/grid-geometry";
 
 /**
  * Colours the grid is drawn with. Read from CSS custom properties (`--ink-rgb`,
@@ -164,9 +164,6 @@ function drawRaisedCells(
 ) {
   if (lifts.size === 0 || opacity <= 0.005) return;
   const { cell } = geo;
-  const inset = 1.5;
-  const size = cell - inset * 2;
-  if (size <= 0) return;
 
   // Lowest first so the highest cells sit on top of their neighbours.
   const entries = [...lifts].filter(([, lift]) => lift > 0.005).sort((a, b) => a[1] - b[1]);
@@ -175,7 +172,10 @@ function drawRaisedCells(
   for (const [key, lift] of entries) {
     const col = key % 10000;
     const row = Math.floor(key / 10000);
-    const x = col * cell + inset;
+    const inset = 1.5;
+    const size = columnWidth(geo, col) - inset * 2;
+    if (size <= 0) continue;
+    const x = columnX(geo, col) + inset;
     const y = row * cell + inset;
 
     // The empty socket the block rose out of.
@@ -213,7 +213,7 @@ function drawTiles(
       const size = cell - inset * 2;
       if (size <= 0) continue;
 
-      const x = col * cell + inset;
+      const x = columnX(geo, col) + inset;
       const y = row * cell + inset;
       ctx.fillStyle = `rgba(${palette.ink},${tone(palette, alpha).toFixed(4)})`;
       ctx.fillRect(x, y, size, size);
@@ -263,7 +263,7 @@ function drawLines(ctx: CanvasRenderingContext2D, geo: GridGeometry, palette: Gr
 
   // Vertical lines. The two strip boundaries are solid and a little stronger.
   for (let col = 1; col < totalCols; col += 1) {
-    const x = crisp(col * cell);
+    const x = crisp(columnX(geo, col));
     const isBoundary = col === outerCells || col === rightCol;
     if (isBoundary) {
       ctx.setLineDash([]);
@@ -284,7 +284,7 @@ function drawLines(ctx: CanvasRenderingContext2D, geo: GridGeometry, palette: Gr
   ctx.fillStyle = `rgba(${ink},${tone(palette, 0.12)})`;
   ctx.beginPath();
   for (let col = 1; col < totalCols; col += 1) {
-    const x = crisp(col * cell);
+    const x = crisp(columnX(geo, col));
     for (let row = 1; row < rows; row += 1) {
       ctx.rect(x - 1.5, crisp(row * cell) - 1.5, 2, 2);
     }
@@ -317,13 +317,14 @@ function drawRipples(
 
     // Only visit cells the wave can touch.
     const reach = maxRadius + band;
-    const minCol = Math.max(0, Math.floor((ripple.x - reach) / cell));
-    const maxCol = Math.min(totalCols - 1, Math.ceil((ripple.x + reach) / cell));
+    const minCol = Math.max(0, columnAt(geo, ripple.x - reach) - 1);
+    const maxCol = Math.min(totalCols - 1, columnAt(geo, ripple.x + reach) + 1);
     const minRow = Math.max(0, Math.floor((ripple.y - reach) / cell));
     const maxRow = Math.min(rows - 1, Math.ceil((ripple.y + reach) / cell));
 
     for (let col = minCol; col <= maxCol; col += 1) {
-      const cx = (col + 0.5) * cell;
+      const colW = columnWidth(geo, col);
+      const cx = columnX(geo, col) + colW / 2;
       for (let row = minRow; row <= maxRow; row += 1) {
         const cy = (row + 0.5) * cell;
         const distance = Math.hypot(cx - ripple.x, cy - ripple.y);
@@ -335,12 +336,12 @@ function drawRipples(
         // Strongest next to the click, tapering to nothing at the edge.
         const proximity = 1 - distance / maxRadius;
         const alpha = easedWave * life * (0.06 + proximity * 0.12);
-        const inset = 2 + (1 - easedWave) * cell * 0.16;
-        const size = cell - inset * 2;
+        const inset = 2 + (1 - easedWave) * colW * 0.16;
+        const size = colW - inset * 2;
         if (size <= 0) continue;
 
         ctx.fillStyle = `rgba(${palette.ink},${tone(palette, alpha).toFixed(3)})`;
-        ctx.fillRect(col * cell + inset, row * cell + inset, size, size);
+        ctx.fillRect(columnX(geo, col) + inset, row * cell + inset, size, size);
       }
     }
   }
@@ -356,8 +357,8 @@ function drawGlow(
   const { cell, totalCols, rows, width, height } = geo;
   const radius = cell * GLOW_RADIUS_CELLS;
   const { x: px, y: py, strength } = glow;
-  const minCol = Math.max(1, Math.floor((px - radius) / cell));
-  const maxCol = Math.min(totalCols - 1, Math.ceil((px + radius) / cell));
+  const minCol = Math.max(1, columnAt(geo, px - radius) - 1);
+  const maxCol = Math.min(totalCols - 1, columnAt(geo, px + radius) + 1);
   const minRow = Math.max(1, Math.floor((py - radius) / cell));
   const maxRow = Math.min(rows - 1, Math.ceil((py + radius) / cell));
 
@@ -382,7 +383,8 @@ function drawGlow(
   const yStart = Math.max(0, py - radius);
   const yEnd = Math.min(height, py + radius);
   for (let col = minCol; col <= maxCol; col += 1) {
-    const dx = Math.abs(col * cell - px);
+    const x = columnX(geo, col);
+    const dx = Math.abs(x - px);
     if (dx >= radius) continue;
     const a = strength * 0.34 * Math.pow(1 - dx / radius, 1.5);
     const gradient = ctx.createLinearGradient(0, py - radius, 0, py + radius);
@@ -390,19 +392,20 @@ function drawGlow(
     gradient.addColorStop(0.5, `rgba(${ACCENT},${a.toFixed(3)})`);
     gradient.addColorStop(1, `rgba(${ACCENT},0)`);
     ctx.strokeStyle = gradient;
-    strokeSegment(ctx, crisp(col * cell), yStart, crisp(col * cell), yEnd, yStart);
+    strokeSegment(ctx, crisp(x), yStart, crisp(x), yEnd, yStart);
   }
 
   // Intersections close to the cursor.
   ctx.setLineDash([]);
   for (let col = minCol; col <= maxCol; col += 1) {
+    const x = columnX(geo, col);
     for (let row = minRow; row <= maxRow; row += 1) {
-      const d = Math.hypot(col * cell - px, row * cell - py);
+      const d = Math.hypot(x - px, row * cell - py);
       if (d >= radius) continue;
       const t = 1 - d / radius;
       ctx.fillStyle = `rgba(${ACCENT},${(strength * t * t * 0.6).toFixed(3)})`;
       ctx.beginPath();
-      ctx.arc(crisp(col * cell), crisp(row * cell), 1.2 + t * 1.8, 0, Math.PI * 2);
+      ctx.arc(crisp(x), crisp(row * cell), 1.2 + t * 1.8, 0, Math.PI * 2);
       ctx.fill();
     }
   }

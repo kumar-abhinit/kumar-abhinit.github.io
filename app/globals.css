@@ -24,8 +24,9 @@
   --grid-boost: 1;
   --socket-alpha: 0.35;
 
-  /* Width of each outer strip. Must match getGridGeometry() in lib/grid-geometry.ts. */
-  --outer: 6.25%;
+  /* Width of each outer strip below 768px. Must match outerFraction(false)
+     in lib/grid-geometry.ts. Desktop (min-width: 768px) overrides this to 10%. */
+  --outer: 6%;
   /* Width of the profile column once the workspace is split. */
   --split: 100%;
 
@@ -88,6 +89,7 @@
 
 @media (min-width: 768px) {
   :root {
+    /* Must match outerFraction(true) in lib/grid-geometry.ts. */
     --outer: 10%;
     --split: 34%;
   }

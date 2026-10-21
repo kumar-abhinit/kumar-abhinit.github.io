@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { DESKTOP_QUERY, getGridGeometry, type GridGeometry } from "@/lib/grid-geometry";
+import {
+  columnAt,
+  columnWidth,
+  columnX,
+  DESKTOP_QUERY,
+  getGridGeometry,
+  type GridGeometry,
+} from "@/lib/grid-geometry";
 import { getReveal, subscribeReveal } from "@/lib/reveal-store";
 import {
   drawGrid,
@@ -119,7 +126,7 @@ export default function GridCanvas() {
         const { cell, totalCols, rows } = geometry;
         const reach = MAX_POP_CELLS * pointer.activity;
         const span = Math.ceil(reach) + 1;
-        const centreCol = Math.floor(pointer.x / cell);
+        const centreCol = columnAt(geometry, pointer.x);
         const centreRow = Math.floor(pointer.y / cell);
         const minCol = Math.max(0, centreCol - span);
         const maxCol = Math.min(totalCols - 1, centreCol + span);
@@ -127,9 +134,10 @@ export default function GridCanvas() {
         const maxRow = Math.min(rows - 1, centreRow + span);
 
         for (let col = minCol; col <= maxCol; col += 1) {
+          const cx = columnX(geometry, col) + columnWidth(geometry, col) / 2;
           for (let row = minRow; row <= maxRow; row += 1) {
             const distance =
-              Math.hypot((col + 0.5) * cell - pointer.x, (row + 0.5) * cell - pointer.y) / cell;
+              Math.hypot(cx - pointer.x, (row + 0.5) * cell - pointer.y) / cell;
             // Each cell reaches between 50% and 100% of the current spread.
             const cellReach = reach * (0.5 + 0.5 * tileNoise(col, row));
             if (distance >= cellReach) continue;
