@@ -27,7 +27,7 @@ export default function HoverInterest({ label, imageSrc, imageAlt }: HoverIntere
     >
       <button
         type="button"
-        className="interest-trigger cursor-default border-0 bg-transparent p-0 font-inherit text-inherit underline decoration-dotted decoration-subtle underline-offset-[0.22em] transition-colors hover:text-foreground hover:decoration-accent focus-visible:text-foreground"
+        className="interest-trigger cursor-default border-0 bg-transparent p-0 font-inherit text-inherit font-bold italic lowercase underline decoration-dotted decoration-subtle underline-offset-[0.22em] transition-colors hover:text-foreground hover:decoration-accent focus-visible:text-foreground"
         aria-describedby={open ? id : undefined}
       >
         {label}

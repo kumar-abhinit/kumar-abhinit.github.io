@@ -23,7 +23,7 @@ export function AboutSection() {
       <p className="reveal mt-6 text-sm text-muted" style={delay(360)}>
         <span className="text-subtle">Away from work: </span>
         <HoverInterest
-          label="Chess"
+          label="chess"
           imageSrc="/interests/chess.jpg"
           imageAlt="Two chess pieces on a board"
         />{" "}
